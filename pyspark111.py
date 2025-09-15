@@ -2,7 +2,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import expr, col,when
 
 def main():
-    spark = SparkSession.builder .appName("LocalFile_to_Oracle_ETL").config("spark.jars", "/usr/local/spark/jars/ojdbc8.jar").getOrCreate()
+    spark = SparkSession.builder .appName("LocalFile_to_Oracle_ETL").config("spark.jars", "/Users/adityakumar/Downloads/ojdbc8.jar").getOrCreate()
 
     # Read file (assuming space-separated)
     input_path = "data.txt"
@@ -29,9 +29,9 @@ def main():
     print("=== final df ===")
     df_clean.show(truncate=False)
     # Write to Oracle DB
-    oracle_url = "jdbc:oracle:thin:@//localhost:1521/XEPDB1"
+    oracle_url = "jdbc:oracle:thin:@//localhost:1521/XE"
     oracle_user = "system"
-    oracle_password = "oracle"
+    oracle_password = "Oracle123"
 
     df_clean.write \
         .format("jdbc") \
