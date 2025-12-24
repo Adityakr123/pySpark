@@ -1,0 +1,95 @@
+# -------------------------------
+# 1. Spark Thrift Server Deployment
+# -------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-thrift
+  labels:
+    app: spark-thrift
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-thrift
+  template:
+    metadata:
+      labels:
+        app: spark-thrift
+    spec:
+      containers:
+      - name: spark-thrift
+        image: spark:3.4.1
+        command:
+        - /bin/bash
+        - -c
+        - |
+          /opt/spark/sbin/start-thriftserver.sh \
+            --master k8s://https://kubernetes.default.svc \
+            --conf spark.sql.catalogImplementation=hive \
+            --conf spark.hadoop.hive.metastore.uris=thrift://hive-metastore:9083 \
+            --conf spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension \
+            --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog \
+            --conf spark.sql.warehouse.dir=hdfs:///warehouse
+        resources:
+          requests:
+            memory: "12Gi"
+            cpu: "2"
+          limits:
+            memory: "16Gi"
+            cpu: "4"
+        ports:
+        - containerPort: 10000
+
+---
+# -------------------------------
+# 2. ClusterIP Service for Thrift Server
+# -------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-thrift
+spec:
+  type: ClusterIP
+  selector:
+    app: spark-thrift
+  ports:
+    - port: 10000
+      targetPort: 10000
+
+---
+# -------------------------------
+# 3. Job to Register Delta Tables
+# -------------------------------
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: delta-table-register
+spec:
+  template:
+    spec:
+      containers:
+      - name: spark-sql
+        image: spark:3.4.1
+        command:
+        - /bin/bash
+        - -c
+        - |
+          /opt/spark/bin/spark-sql <<EOF
+          -- Create Database
+          CREATE DATABASE IF NOT EXISTS st_db;
+
+          -- Register Tables (already in Delta Lake on HDFS)
+          CREATE TABLE IF NOT EXISTS st_db.table1
+          USING DELTA
+          LOCATION 'hdfs:///delta/st/table1';
+
+          CREATE TABLE IF NOT EXISTS st_db.table2
+          USING DELTA
+          LOCATION 'hdfs:///delta/st/table2';
+
+          CREATE TABLE IF NOT EXISTS st_db.table3
+          USING DELTA
+          LOCATION 'hdfs:///delta/st/table3';
+          EOF
+      restartPolicy: Never
