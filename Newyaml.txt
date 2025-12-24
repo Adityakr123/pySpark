@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-thrift
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-thrift
+  template:
+    metadata:
+      labels:
+        app: spark-thrift
+    spec:
+      containers:
+        - name: spark-thrift
+          image: h06vksharbor.corp.ad.sbl/cbops/thriftimagefinal:latest
+          command:
+            - /opt/spark/bin/spark-class
+          args:
+            - org.apache.spark.sql.hive.thriftserver.HiveThriftServer2
+            - --master
+            - local[*]
+            - --conf
+            - spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension
+            - --conf
+            - spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
+            - --conf
+            - spark.sql.warehouse.dir=hdfs://10.177.103.199:8022/data-lake/warehouse
+            - --conf
+            - spark.eventLog.enabled=true
+            - --conf
+            - spark.eventLog.dir=hdfs://10.177.103.199:8022/data-lake/thriftlogs
+            - --jars
+            - /opt/spark/jars/delta-spark_2.12-3.2.0.jar,/opt/spark/jars/delta-storage-3.2.0.jar,/opt/spark/jars/postgresql-42.7.3.jar
+          ports:
+            - containerPort: 10000
+          resources:
+            requests:
+              memory: "6Gi"
+              cpu: "2"
+            limits:
+              memory: "16Gi"
+              cpu: "4"
