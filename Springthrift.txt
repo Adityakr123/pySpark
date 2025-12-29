@@ -1,0 +1,127 @@
+# ===========================
+# EXISTING ORACLE DATASOURCE
+# ===========================
+spring.datasource.url=jdbc:oracle:thin:@host:1521/orcl
+spring.datasource.username=oracle_user
+spring.datasource.password=oracle_pass
+spring.datasource.driver-class-name=oracle.jdbc.OracleDriver
+
+# ===========================
+# NEW HIVE / SPARK THRIFT DATASOURCE
+# ===========================
+spring.datasource.hive.url=jdbc:hive2://spark-thrift:10000/default
+spring.datasource.hive.driver-class-name=org.apache.hive.jdbc.HiveDriver
+
+# Server port for Spring Boot app
+server.port=8080
+package com.example.config;
+
+import javax.sql.DataSource;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.jdbc.DataSourceBuilder;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+/**
+ * Configures a separate Hive / Spark Thrift DataSource.
+ * This is required because Spring Boot does not auto-configure Hive.
+ * Oracle datasource remains auto-configured by Spring Boot.
+ */
+@Configuration
+public class HiveDataSourceConfig {
+
+    // Create Hive DataSource from properties
+    @Bean(name = "hiveDataSource")
+    @ConfigurationProperties(prefix = "spring.datasource.hive")
+    public DataSource hiveDataSource() {
+        return DataSourceBuilder.create().build();
+    }
+
+    // JdbcTemplate for Hive queries
+    @Bean(name = "hiveJdbcTemplate")
+    public JdbcTemplate hiveJdbcTemplate(
+            @Qualifier("hiveDataSource") DataSource dataSource) {
+        return new JdbcTemplate(dataSource);
+    }
+}
+
+package com.example.service;
+
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+
+/**
+ * Service to perform UPDATE and SELECT on Delta Lake table
+ * using Hive JDBC via Spark Thrift Server.
+ */
+@Service
+public class DeltaService {
+
+    private final JdbcTemplate hiveJdbcTemplate;
+
+    public DeltaService(
+            @Qualifier("hiveJdbcTemplate") JdbcTemplate hiveJdbcTemplate) {
+        this.hiveJdbcTemplate = hiveJdbcTemplate;
+    }
+
+    /**
+     * Updates status for a given ID and fetches the updated row.
+     * @param id The ID to update
+     * @param status The new status
+     * @return Map containing updated row data
+     */
+    public Map<String, Object> updateAndFetch(Long id, String status) {
+
+        // Update Delta table via Spark Thrift
+        hiveJdbcTemplate.update(
+            "UPDATE delta_db.my_table SET status = ? WHERE id = ?",
+            status, id
+        );
+
+        // Fetch updated row
+        return hiveJdbcTemplate.queryForMap(
+            "SELECT id, status FROM delta_db.my_table WHERE id = ?",
+            id
+        );
+    }
+}
+
+package com.example.controller;
+
+import com.example.service.DeltaService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * Exposes a REST endpoint to update a Delta Lake table
+ * and return the updated row.
+ */
+@RestController
+@RequestMapping("/api/delta")
+public class DeltaController {
+
+    private final DeltaService deltaService;
+
+    public DeltaController(DeltaService deltaService) {
+        this.deltaService = deltaService;
+    }
+
+    /**
+     * POST /api/delta/update/{id}?status=...
+     * Updates the status of a row by ID and returns updated data.
+     */
+    @PostMapping("/update/{id}")
+    public ResponseEntity<?> update(
+            @PathVariable Long id,
+            @RequestParam String status) {
+
+        return ResponseEntity.ok(
+                deltaService.updateAndFetch(id, status)
+        );
+    }
+}
+
