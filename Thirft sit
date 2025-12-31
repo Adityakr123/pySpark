@@ -1,0 +1,46 @@
+meta store 
+
+docker file 
+
+FROM bde2020/hive:2.3.2-postgres-metastore
+
+# Switch to root to create user and copy files
+USER root
+
+# Create spark user with UID 185 (if not already present)
+RUN id -u spark >/dev/null 2>&1 || \
+    useradd -u 185 -m -s /bin/bash spark
+
+# Copy hive-site.xml
+COPY hive-site.xml /opt/hive/conf/hive-site.xml
+
+# Set permissions and ownership
+RUN chown spark:spark /opt/hive/conf/hive-site.xml && \
+    chmod 644 /opt/hive/conf/hive-site.xml
+
+# Switch back to spark user
+USER spark
+
+
+
+yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hive-schematool-init
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsUser: 185
+        runAsGroup: 185
+      containers:
+        - name: schematool
+          image: my-hive:2.3.2
+          command:
+            - /bin/bash
+            - -c
+            - schematool -dbType postgres -initSchema
+
