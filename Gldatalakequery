@@ -1,0 +1,48 @@
+MERGE INTO datalake.gl_balance B
+USING (
+    SELECT
+        jt.branch      AS BRANCH_CODE,
+        jt.currency    AS CURRENCY,
+        jt.cgl         AS CGL,
+        TO_DATE(jt.csvDate, 'yyyy-MM-dd') AS TXN_DATE,
+        SUM(
+            CASE
+                WHEN jt.currency = 'INR'
+                THEN jt.amount
+                ELSE jt.amount * COALESCE(cm.currency_rate, 1)
+            END
+        ) AS NET_AMOUNT
+    FROM journal_request jr
+    LATERAL VIEW json_tuple(
+        jr.payload,
+        'branch',
+        'currency',
+        'cgl',
+        'amount',
+        'csvDate'
+    ) jt AS branch, currency, cgl, amount, csvDate
+    LEFT JOIN currency_master cm
+        ON jt.currency = cm.currency_code
+    WHERE jr.req_status = 'P'
+      AND jr.creator_id <> ?
+      -- same targetClause here
+    GROUP BY
+        jt.branch,
+        jt.currency,
+        jt.cgl,
+        jt.csvDate
+) S
+ON (
+    B.date = S.TXN_DATE
+    AND B.glcc = CONCAT(S.BRANCH_CODE, S.CURRENCY, S.CGL)
+)
+WHEN MATCHED THEN
+  UPDATE SET
+    B.amount = B.amount + S.NET_AMOUNT
+WHEN NOT MATCHED THEN
+  INSERT (date, glcc, amount)
+  VALUES (
+      S.TXN_DATE,
+      CONCAT(S.BRANCH_CODE, S.CURRENCY, S.CGL),
+      S.NET_AMOUNT
+  );
