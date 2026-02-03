@@ -1,0 +1,106 @@
+🗂 Sample Log File 1
+File name:
+GLIFINCORE_AB_04092099.log
+Content:
+1635 /fns/d4/r/data/file/GLIFONL_001
+0 /fns/d4/r/data/file/GLIFONL_002
+1635 /fns/d4/r/data/file/GLIFONL_003
+0 /fns/d4/r/data/file/GLIFONL_004
+256 /fns/d4/r/data/file/GLIFAGRI
+836 /fns/d4/r/data/file/GLIFONL_051
+240 /fns/d4/r/data/file/GLIFONL_061
+1198 /fns/d4/r/data/file/GLIFONL_091
+36248 /fns/d4/r/data/file/GLIFONL_101
+62 /fns/d4/r/data/file/GLIFONL_131
+🗂 Sample Log File 2
+File name:
+GLIFINCORE_12_05092099.log
+Content:
+900 /fns/d4/r/data/file/GLIFONL_031
+0 /fns/d4/r/data/file/GLIFONL_032
+12576 /fns/d4/r/data/file/GLIFONL_021
+0 /fns/d4/r/data/file/GLIFONL_022
+256 /fns/d4/r/data/file/GLIFONL_041
+0 /fns/d4/r/data/file/GLIFAGRI
+194 /fns/d4/r/data/file/GLIFONL_071
+12684 /fns/d4/r/data/file/GLIFONL_081
+0 /fns/d4/r/data/file/GLIFONL_082
+1548 /fns/d4/r/data/file/GLIFONL_121
+🗂 Sample Log File 3
+File name:
+GLIFAGRI_EU1_06092099.log
+Content:
+515 /fns/d4/r/data/file/INVTOGL_020
+150 /fns/d4/r/data/file/INVTOGL_024
+2 /fns/d4/r/data/file/INVTOGL_CE
+0 /fns/d4/r/data/file/INVTOGL_DC_001
+0 /fns/d4/r/data/file/INVTOGL_DC_003
+0 /fns/d4/r/data/file/INVTOGL_DC_004
+0 /fns/d4/r/data/file/INVTOGL_DC_005
+0 /fns/d4/r/data/file/INVTOGL_DC_007
+0 /fns/d4/r/data/file/INVTOGL_DC_008
+0 /fns/d4/r/data/file/INVTOGL_DC_009
+✅ These test cases cover
+Scenario	Covered
+Region = letters	AB
+Region = number	12
+Region = alphanumeric	EU1
+Files ending with numbers	GLIFONL_001
+Files without numbers	GLIFAGRI
+Mixed row counts	0, small, large
+🧪 Expected Output Pattern
+Input File	Row	Output Name
+GLIFINCORE_AB_04092099.log	GLIFONL_001	GLIFONL_04092099_AB_001
+GLIFINCORE_AB_04092099.log	GLIFAGRI	GLIFAGRI_04092099_AB
+GLIFAGRI_EU1_06092099.log	INVTOGL_CE	INVTOGL_CE_06092099_EU1
+If you want, I can also give a small script to generate 100 random lines for stress testing.
+Their are more file bortogl glccgen glcccta make for them also 
+Love it — you’re building a realistic test bench now 🔥
+Let’s add those file types too: BORTOGL, GLCCGEN, GLCCCTA
+I’ll keep formats exactly like your logs:
+
+<row_count> <full_path>
+🗂 Log File 4
+GLIFINCORE_AB_04092099.log
+120 /fns/d4/r/data/file/BORTOGL_001
+0 /fns/d4/r/data/file/BORTOGL_002
+98 /fns/d4/r/data/file/BORTOGL_003
+0 /fns/d4/r/data/file/BORTOGL_004
+455 /fns/d4/r/data/file/BORTOGL_021
+0 /fns/d4/r/data/file/BORTOGL_022
+12 /fns/d4/r/data/file/BORTOGL
+🗂 Log File 5
+GLIFINCORE_12_05092099.log
+10 /fns/d4/r/data/file/GLCCGEN_001
+0 /fns/d4/r/data/file/GLCCGEN_002
+25 /fns/d4/r/data/file/GLCCGEN_003
+0 /fns/d4/r/data/file/GLCCGEN_004
+300 /fns/d4/r/data/file/GLCCGEN_021
+0 /fns/d4/r/data/file/GLCCGEN_022
+4 /fns/d4/r/data/file/GLCCGEN
+🗂 Log File 6
+GLIFAGRI_EU1_06092099.log
+88 /fns/d4/r/data/file/GLCCCTA_001
+0 /fns/d4/r/data/file/GLCCCTA_002
+199 /fns/d4/r/data/file/GLCCCTA_003
+0 /fns/d4/r/data/file/GLCCCTA_004
+780 /fns/d4/r/data/file/GLCCCTA_031
+0 /fns/d4/r/data/file/GLCCCTA_032
+15 /fns/d4/r/data/file/GLCCCTA
+🧪 These Now Test EVERYTHING
+Case	Example
+Different prefixes	GLIFONL, BORTOGL, GLCCGEN, GLCCCTA
+With numeric suffix	_001
+Without suffix	GLCCGEN
+Region = letters	AB
+Region = number	12
+Region = alphanumeric	EU1
+Zero counts	yes
+Large counts	yes
+🧾 Example Expected Outputs
+Input	Output
+BORTOGL_001	BORTOGL_04092099_AB_001
+GLCCGEN	GLCCGEN_05092099_12
+GLCCCTA_031	GLCCCTA_06092099_EU1_031
+Your Spark job should now handle any file family without code change 💪
+If you want, next I can show how to auto-detect bad rows (like missing path or corrupt line).
