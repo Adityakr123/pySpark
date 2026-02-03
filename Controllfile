@@ -1,0 +1,81 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
+
+spark = SparkSession.builder.appName("MultiLogParser").getOrCreate()
+
+# -----------------------------------
+# 1. READ ALL LOG FILES
+# -----------------------------------
+df_raw = spark.read.text("/path/GLIF*.log") \
+    .withColumn("log_file_path", input_file_name())
+
+# -----------------------------------
+# 2. EXTRACT REGION & DATE FROM LOG FILE NAME
+# Example: GLIFINCORE_4_04092099.log
+# -----------------------------------
+df_raw = df_raw.withColumn(
+    "log_file_name",
+    element_at(split(col("log_file_path"), "/"), -1)
+)
+
+df_raw = df_raw.withColumn(
+    "region",
+    regexp_extract(col("log_file_name"), r"_(\d+)_(\d{8})\.log$", 1)
+).withColumn(
+    "run_date",
+    regexp_extract(col("log_file_name"), r"_(\d+)_(\d{8})\.log$", 2)
+)
+
+# -----------------------------------
+# 3. SPLIT ROW COUNT & FILE PATH
+# -----------------------------------
+df = df_raw.withColumn(
+    "row_count",
+    split(col("value"), r"\s+").getItem(0).cast("int")
+).withColumn(
+    "file_path",
+    split(col("value"), r"\s+").getItem(1)
+).drop("value")
+
+# -----------------------------------
+# 4. EXTRACT BASE FILE NAME
+# -----------------------------------
+df = df.withColumn(
+    "base_name",
+    element_at(split(col("file_path"), "/"), -1)
+)
+
+# -----------------------------------
+# 5. CHECK IF FILE ENDS WITH NUMBER
+# -----------------------------------
+df = df.withColumn(
+    "suffix",
+    regexp_extract(col("base_name"), r"_(\d+)$", 1)
+)
+
+df = df.withColumn(
+    "prefix",
+    when(col("suffix") != "",
+         regexp_replace(col("base_name"), r"_(\d+)$", "")
+    ).otherwise(col("base_name"))
+)
+
+# -----------------------------------
+# 6. BUILD UPDATED FILE NAME
+# -----------------------------------
+df_final = df.withColumn(
+    "updated_file_name",
+    when(
+        col("suffix") != "",
+        concat_ws("_", col("prefix"), col("run_date"), col("region"), col("suffix"))
+    ).otherwise(
+        concat_ws("_", col("prefix"), col("run_date"), col("region"))
+    )
+)
+
+# -----------------------------------
+# 7. FINAL RESULT
+# -----------------------------------
+result_df = df_final.select("updated_file_name", "row_count")
+
+result_df.show(truncate=False)
