@@ -1,0 +1,108 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
+
+spark = SparkSession.builder.appName("Metadata_Governed_Ingestion").getOrCreate()
+
+incoming_path = "/incoming/hdfs_folder/"
+
+# -------------------------------------------------
+# 1. STREAM FILE METADATA (NOT FILE CONTENT)
+# -------------------------------------------------
+file_stream = spark.readStream.format("binaryFile") \
+    .option("pathGlobFilter", "*.txt.gz") \
+    .load(incoming_path)
+
+file_stream = file_stream.withColumn(
+    "full_file_name",
+    regexp_extract(col("path"), r"([^/]+$)", 1)
+)
+
+file_stream = file_stream.withColumn(
+    "file_name",
+    regexp_replace(col("full_file_name"), r"\.txt\.gz$", "")
+)
+
+# -------------------------------------------------
+# 2. CONTROL FILE MASTER CHECK
+# -------------------------------------------------
+control_df = spark.read.jdbc("jdbc_url", "CONTROL_FILEMASTER", properties={})
+
+df = file_stream.join(control_df, "file_name", "left") \
+    .withColumn("control_status",
+        when(col("FILE_NAME").isNull(), "NOT_IN_CONTROL").otherwise("OK")
+    )
+
+# -------------------------------------------------
+# 3. BREAK FILE NAME PARTS
+# FORMAT: FILETYPE_DATE_APPNAME_SEQ?
+# -------------------------------------------------
+df = df.withColumn("file_type", split(col("file_name"), "_").getItem(0)) \
+       .withColumn("date_part", split(col("file_name"), "_").getItem(1)) \
+       .withColumn("appname", split(col("file_name"), "_").getItem(2)) \
+       .withColumn("seq", split(col("file_name"), "_").getItem(3))
+
+df = df.withColumn(
+    "filetype_appname",
+    concat_ws("_", col("file_type"), col("appname"))
+)
+
+df = df.withColumn("seq_present", col("seq").isNotNull())
+
+# -------------------------------------------------
+# 4. FILE TYPE MASTER CHECK
+# -------------------------------------------------
+type_df = spark.read.jdbc("jdbc_url", "FILE_TYPE_MASTER", properties={})
+
+df = df.join(type_df, df.filetype_appname == type_df.TYPE, "left") \
+    .withColumn("type_status",
+        when(col("TYPE").isNull(), "TYPE_NOT_FOUND").otherwise("OK")
+    )
+
+# -------------------------------------------------
+# 5. STREAM vs SEQUENCE VALIDATION
+# -------------------------------------------------
+df = df.withColumn("stream_status",
+    when((col("STREAM") == "Y") & (~col("seq_present")), "SEQ_MISSING")
+    .when((col("STREAM") == "N") & (col("seq_present")), "UNEXPECTED_SEQ")
+    .otherwise("OK")
+)
+
+# -------------------------------------------------
+# 6. FINAL DECISION
+# -------------------------------------------------
+df = df.withColumn("final_status",
+    when(col("control_status") != "OK", col("control_status"))
+    .when(col("type_status") != "OK", col("type_status"))
+    .when(col("stream_status") != "OK", col("stream_status"))
+    .otherwise("READY")
+)
+
+# -------------------------------------------------
+# 7. PROCESS VALID FILES ONLY
+# -------------------------------------------------
+def process_batch(batch_df, epoch_id):
+
+    ready_files = [r.path for r in batch_df.filter(col("final_status") == "READY").collect()]
+    rejected_df = batch_df.filter(col("final_status") != "READY")
+
+    # Log rejected files
+    rejected_df.write.mode("append").parquet("/logs/rejected_files/")
+
+    # Process approved files
+    for file_path in ready_files:
+        print(f"Processing file: {file_path}")
+
+        data_df = spark.read \
+            .option("delimiter", "|") \
+            .csv(file_path)   # Spark auto decompresses .gz
+
+        data_df.write.mode("append").parquet("/processed/output/")
+
+# -------------------------------------------------
+# 8. START STREAM
+# -------------------------------------------------
+query = df.writeStream.foreachBatch(process_batch) \
+    .option("checkpointLocation", "/chk/metadata_ingestion_chk/") \
+    .start()
+
+query.awaitTermination()
