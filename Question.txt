@@ -1,0 +1,74 @@
+You are given transaction records from an e-commerce system.
+Each record contains the following fields:
+timestamp,user_id,product,amount,city
+Example:
+2026-03-05T10:00:01,U1,Phone,50000,Mumbai
+Where:
+- timestamp → transaction time
+- user_id → user making the purchase
+- product → product purchased
+- amount → transaction amount (integer)
+- city → city of purchase
+Your task is to process the transactions and generate analytics.
+Input Format
+1) First line contains an integer N representing number of transactions.
+2) Next N lines contain transaction records in the format:
+timestamp,user_id,product,amount,city
+Data Validation Rule
+Some rows may contain invalid amounts.
+Example:
+2026-03-05T10:03:45,U1,Mouse,INVALID,Mumbai
+Rule:
+If amount is not a valid integer, ignore that record.
+Only valid rows should be used for calculations.
+Required Output
+1) Total Revenue
+Total Revenue: <sum_of_all_valid_amounts>
+2) Revenue Per City
+Cities must be printed in descending order of revenue.
+Format:
+City Revenue
+<city> <revenue>
+3) Top Selling Product
+Top Product: <product> <count>
+4) Top Spending User
+Top User: <user_id> <total_spent>
+Example Input
+7
+2026-03-05T10:00:01,U1,Phone,50000,Mumbai
+2026-03-05T10:02:11,U2,Laptop,80000,Delhi
+2026-03-05T10:03:45,U1,Mouse,500,Mumbai
+2026-03-05T10:05:12,U3,Phone,50000,Pune
+2026-03-05T10:06:22,U2,Keyboard,1500,Delhi
+2026-03-05T10:07:09,U1,Laptop,80000,Mumbai
+2026-03-05T10:09:55,U4,Phone,50000,Bangalore
+Expected Output
+Total Revenue: 311500
+City Revenue
+Mumbai 130500
+Delhi 81500
+Pune 50000
+Bangalore 50000
+Top Product: Phone 3
+Top User: U1 130500
+Test Case 2 (Invalid Rows)
+Input:
+6
+2026-03-05T10:00:01,U1,Phone,50000,Mumbai
+2026-03-05T10:02:11,U2,Laptop,80000,Delhi
+2026-03-05T10:03:45,U1,Mouse,INVALID,Mumbai
+2026-03-05T10:05:12,U3,Phone,50000,Pune
+2026-03-05T10:06:22,U2,Keyboard,1500,Delhi
+2026-03-05T10:07:09,U1,Laptop,80000,Mumbai
+Output:
+Total Revenue: 261500
+City Revenue
+Mumbai 130000
+Delhi 81500
+Pune 50000
+Top Product: Laptop 2
+Top User: U1 130000
+Constraints
+1 ≤ N ≤ 10,000
+Amount is a positive integer for valid records.
+Ignore records with invalid amount
