@@ -1,0 +1,37 @@
+import time
+from pyspark.sql.functions import lit, col
+
+def write_to_delta_safe(df, path, streamType):
+
+    max_retries = 5
+
+    for attempt in range(max_retries):
+        try:
+            print(f"Writing to Delta (attempt {attempt+1})...")
+
+            (df
+             .withColumn("streamType", lit(streamType))   # 🔥 partition column
+             .repartition(1)   # 🔥 best for your small files
+             .write
+             .format("delta")
+             .mode("append")
+             .partitionBy("streamType")   # 🔥 avoid conflicts
+             .option("maxRecordsPerFile", 500000)  # safe default
+             .save(path)
+            )
+
+            print("Write successful ✅")
+            return
+
+        except Exception as e:
+            error_msg = str(e)
+
+            if "Concurrent" in error_msg or "conflict" in error_msg:
+                wait = 2 * (attempt + 1)
+                print(f"⚠️ Conflict detected → retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                print("❌ Non-retryable error")
+                raise
+
+    raise Exception("❌ Write failed after retries")
